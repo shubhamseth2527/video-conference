@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js"></script>
+
+<meta charset="UTF-8">
+<title>Video Conferencing App</title>
+<style>
+body { font-family: Arial; text-align: center; }
+#video-container { display: none; margin-top: 20px; }
+
+.video-wrapper {
+    position: relative;
+    width: 400px;
+    height: 300px;
+}
+#local-video, #output-canvas {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+}
+#local-video {
+    opacity: 0; /* Hide the original video, show only the canvas */
+}
+video { width: 400px; border: 1px solid #ccc; border-radius: 8px; }
+
+.control-panel {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.5);
+    padding: 8px 12px;
+    border-radius: 6px;
+    display: flex; gap: 10px;
+}
+
+.control-panel button {
+    background: #4CAF50; color: white;
+    border: none; padding: 6px 12px;
+    border-radius: 4px; cursor: pointer;
+}
+
+#bg-thumbnails {
+    display: none;
+    position: absolute;
+    bottom: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    gap: 10px;
+    flex-direction: row;
+    background: rgba(0,0,0,0.5);
+    padding: 5px; border-radius: 6px;
+}
+
+.bg-thumb { cursor: pointer; border: 2px solid #fff; border-radius: 4px; width: 60px; }
+</style>
+</head>
+<body>
+
+<h2>Join a Room</h2>
+<input type="text" id="room-id" placeholder="Room ID">
+<input type="text" id="username" placeholder="Username">
+<button id="join-button">Join Room</button>
+
+<div id="video-container">
+    <h3>Video</h3>
+    <div class="video-wrapper" style="position:relative; width:400px; height:300px;">
+         <video id="local-video" autoplay muted playsinline style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;"></video>
+         <canvas id="output-canvas" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:2;"></canvas>
+        <div class="control-panel" style="position:absolute;bottom:10px;left:50%;transform:translateX(-50%);z-index:3;">
+            <button id="bg-button">Background</button>
+        </div>
+        <div id="bg-thumbnails" style="display:none;position:absolute;bottom:60px;left:50%;transform:translateX(-50%);z-index:4;gap:10px;flex-direction:row;background:rgba(0,0,0,0.5);padding:5px;border-radius:6px;">
+            <div class="bg-thumb" id="bg-none" style="width:60px;height:60px;display:flex;align-items:center;justify-content:center;background:#eee;color:#333;font-weight:bold;cursor:pointer;border:2px solid #fff;border-radius:4px;">
+                None
+            </div>
+            <img src="image/image1.jpg" class="bg-thumb" style="width:60px;border:2px solid #fff;border-radius:4px;cursor:pointer;">
+            <img src="image/image2.jpg" class="bg-thumb" style="width:60px;border:2px solid #fff;border-radius:4px;cursor:pointer;">
+            <img src="image/image3.jpg" class="bg-thumb" style="width:60px;border:2px solid #fff;border-radius:4px;cursor:pointer;">
+            <img src="image/image4.jpg" class="bg-thumb" style="width:60px;border:2px solid #fff;border-radius:4px;cursor:pointer;">
+        </div>
+    </div>
+</div>
+
+<!-- Socket.io -->
+ <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js"></script>
+
+<script src="/socket.io/socket.io.js"></script>
+
+<!-- Client JS as ES Module -->
+<script type="module" src="client.js"></script>
+
+</body>
+</html>
