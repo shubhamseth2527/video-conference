@@ -1,11 +1,142 @@
-const socket = io();
-
+const socket = io(); 
+let username = ""; 
 let localStream, peerConnection;
 const config = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
-
 let selectedBgImage = null;
 let selfieSegmentation;
 let ctx, outputCanvas, localVideo, remoteVideo, videoContainer, controlPanel;
+const screenshotBtn  = document.getElementById("screenshot-btn");
+const downloadBtn = document.getElementById("download-btn");
+const thumbnailContainer = document.getElementById("thumbnail-container");
+const instruction = document.getElementById("instruction");
+const documents = [
+  { name: "Aadhaar", ext: "png", message: "📸 Please show your Aadhaar card" },
+  { name: "PAN", ext: "jpg", message: "📸 Now show your PAN card" },
+  { name: "Voter", ext: "png", message: "📸 Finally, show your Voter ID card" },
+];
+let sessionFolder = null; // global
+
+function getEpoch() {
+  return Date.now(); //
+}
+let currentIndex = 0;
+let capturedFiles = [];
+function generateUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+const userUUID = generateUUID();
+// Helper: format datetime
+function getTimestamp() {
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  return (
+    now.getFullYear() +
+    pad(now.getMonth() + 1) +
+    pad(now.getDate()) +
+    pad(now.getHours()) +
+    pad(now.getMinutes()) +
+    pad(now.getSeconds())
+  );
+}
+
+// Helper: take screenshot from video
+function takeScreenshot(videoEl) {
+  const canvas = document.createElement("canvas");
+  canvas.width = videoEl.videoWidth;
+  canvas.height = videoEl.videoHeight;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+  return canvas;
+}
+
+async function handleScreenshot() {
+  const videoEl = document.getElementById("local-video");
+  if (!videoEl) return alert("Video not found!");
+
+  if (currentIndex >= documents.length) {
+    instruction.textContent =
+      "All documents captured successfully! Click 'Download All' to save files.";
+    screenshotBtn.disabled = true;
+    downloadBtn.style.display = "inline-block";
+    return;
+  }
+
+   // Set folder name once
+  if (!sessionFolder) sessionFolder = Date.now();
+
+  const doc = documents[currentIndex];
+  const timestamp = getTimestamp();
+  const fileName = `${doc.name}_${timestamp}.${doc.ext}`;
+
+  const canvas = takeScreenshot(videoEl);
+  const thumb = document.createElement("img");
+  thumb.src = canvas.toDataURL(`image/${doc.ext}`);
+  thumb.title = doc.name;
+  thumb.style.width = "100px";
+  thumb.style.border = "2px solid #4CAF50";
+  thumb.style.borderRadius = "6px";
+  thumbnailContainer.appendChild(thumb);
+
+  // Store in-memory blob for later upload
+  const blob = await new Promise((resolve) =>
+    canvas.toBlob(resolve, `image/${doc.ext}`)
+  );
+  capturedFiles.push({ fileName, blob });
+
+  currentIndex++;
+
+  if (currentIndex < documents.length) {
+    instruction.textContent = documents[currentIndex].message;
+  } else {
+    instruction.textContent = "✅ All documents captured successfully! Click 'Download All' to save files.";
+    screenshotBtn.disabled = true;
+    downloadBtn.style.display = "inline-block";
+  }
+}
+
+async function handleDownload() {
+  if (capturedFiles.length === 0) {
+    alert("No screenshots taken!");
+    return;
+  }
+
+  // Upload each file now (delayed until this point)
+  const uploadedUrls = [];
+  for (const fileObj of capturedFiles) {
+    const { fileName, blob } = fileObj;
+    const formData = new FormData();
+    formData.append("file", blob, fileName);
+    formData.append("username", username);
+    formData.append("folder", sessionFolder);
+
+    const res = await fetch("/upload", { method: "POST", body: formData });
+
+    if (!res.ok) {
+      const text = await res.text();
+      console.error("Upload failed:", text);
+      return alert("Upload failed. See console.");
+    }
+
+    const data = await res.json();
+    uploadedUrls.push(data.filePath);
+  }
+
+  instruction.textContent = "📁 All files uploaded and downloaded!";
+}
+
+screenshotBtn.addEventListener("click", () => {
+  if (currentIndex === 0) {
+    instruction.textContent = documents[0].message;
+  }
+  handleScreenshot();
+});
+
+downloadBtn.addEventListener("click", handleDownload);
+
 
 document.addEventListener("DOMContentLoaded", () => {
   // === DOM elements ===
@@ -19,7 +150,6 @@ document.addEventListener("DOMContentLoaded", () => {
   outputCanvas = document.getElementById("output-canvas");
   ctx = outputCanvas.getContext("2d");
   const bgButton = document.getElementById("bg-button");
-  const bgThumbnails = document.getElementById("bg-thumbnails");
 
   // ===== Join Room =====
   joinButton.addEventListener("click", async () => {
@@ -44,7 +174,7 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error("Error accessing camera/mic:", err);
       return;
     }
-
+   instruction.textContent = "Click 'Screenshot' to capture your Aadhaar card.";
     socket.emit("joinRoom", { roomId, username });
   });
 
@@ -111,10 +241,6 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 
-document.getElementById("bg-none").addEventListener("click", () => {
-    selectedBgImage = null;
-    document.getElementById("bg-thumbnails").style.display = "none";
-});
 
 // ===== Segmentation Logic =====
 function initSegmentation() {
